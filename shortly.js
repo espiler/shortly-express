@@ -3,6 +3,7 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
+var bcrypt = require('bcrypt')
 
 
 var db = require('./app/config');
@@ -23,7 +24,11 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 // app.use(express.cookieParser('shhhh, very secret'));
-app.use(session());
+app.use(session({
+  secret: 'zfnzkwjehgweghw',
+  resave: false,
+  saveUninitialized: true
+}));
 
 function restrict(req, res, next) {
   if (req.session.user) {
@@ -34,9 +39,19 @@ function restrict(req, res, next) {
   }
 }
 
-app.get('/', restrict,
+app.get('/',
 function(req, res) {
   res.render('index');
+});
+
+app.get('/signup',
+function(req, res) {
+  res.render('signup');
+});
+
+app.get('/login',
+function(req, res) {
+  res.render('login');
 });
 
 app.get('/create',
@@ -49,6 +64,40 @@ function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
+});
+
+app.post('/signup',
+function(req,res) {
+  var username = req.body.username;
+  var password = req.body.password;
+  var salt = bcrypt.genSaltSync(10);
+  var hashedPass = bcrypt.hashSync(password, salt);
+
+  new User({ username: username }).fetch().then(function(found) {
+    if (found) {
+      console.log('************** USER ALREADY EXISTS!! **************');
+      res.send(404);
+    } else {
+      var user = new User({
+        username: username,
+        salt: salt,
+        hashedPass: hashedPass
+      });
+      user.save().then(function(user) {
+        Users.add(user);
+        console.log('************** USER saved **************')
+        res.send(201);
+
+     // request.session.regenerate(function(){
+     //     request.session.user = userObj.username;
+     //     response.redirect('/restricted');
+     // });
+
+      });
+
+    }
+  });
+
 });
 
 app.post('/links',
