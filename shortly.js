@@ -36,9 +36,11 @@ function restrict(req, res, next) {
   } else {
     // console.log('************************* SESSION: ', req.session);
     //req.session.error = 'Access denied!';
-    res.render('signup');
+    res.redirect('/signup');
   }
 }
+
+/************** GET REQUESTS **********************/
 
 app.get('/', restrict,
 function(req, res) {
@@ -52,46 +54,74 @@ function(req, res) {
 
 app.get('/login',
 function(req, res) {
+  if (req.session) {
+    req.session.destroy(function(){});
+  }
   res.render('login');
 });
 
-app.get('/create',
+app.get('/create', restrict,
 function(req, res) {
   res.render('index');
 });
 
-app.get('/links',
+app.get('/links', restrict,
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
+
+
+
+/************** POST REQUESTS **********************/
+app.post('/login',
+function(req,res) {
+  var username = req.body.username;
+  var password = req.body.password;
+  new User({ username: username }).fetch().then(function(user) {
+    if (!user) {
+      // username does not exist
+      //render invalid user or password ejs
+      res.redirect('/login');
+    } else {
+      bcrypt.compare(password, user.attributes.hashedPass, function(err, result){
+        if(!err && result){
+          req.session.regenerate(function(){
+             req.session.user = username;
+             res.redirect('/index');
+           });
+        } else {
+          //render invalid user or password ejs
+        }
+      });
+    }
+  });
+
+});
+
 app.post('/signup',
 function(req,res) {
   var username = req.body.username;
   var password = req.body.password;
-  var salt = bcrypt.genSaltSync(10);
-  var hashedPass = bcrypt.hashSync(password, salt);
-
   new User({ username: username }).fetch().then(function(found) {
     if (found) {
-      res.send(404);
+      // render Username already Exists message
+      res.redirect('/signup');
     } else {
-      var user = new User({
-        username: username,
-        salt: salt,
-        hashedPass: hashedPass
-      });
-      user.save().then(function(user) {
-        Users.add(user);
-        req.session.regenerate(function(){
-           req.session.user = username;
-           res.redirect('/index');
+      var hashedPass = bcrypt.hashSync(password, 10);
+        var user = new User({
+          username: username,
+          hashedPass: hashedPass
         });
-
-      });
-
+        user.save().then(function(user) {
+          Users.add(user);
+          req.session.regenerate(function(){
+             req.session.user = username;
+             res.redirect('/index');
+          });
+        });
     }
   });
 
