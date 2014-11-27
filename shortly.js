@@ -34,12 +34,13 @@ function restrict(req, res, next) {
   if (req.session.user) {
     next();
   } else {
-    req.session.error = 'Access denied!';
-    res.render('/login');
+    // console.log('************************* SESSION: ', req.session);
+    //req.session.error = 'Access denied!';
+    res.render('signup');
   }
 }
 
-app.get('/',
+app.get('/', restrict,
 function(req, res) {
   res.render('index');
 });
@@ -75,7 +76,6 @@ function(req,res) {
 
   new User({ username: username }).fetch().then(function(found) {
     if (found) {
-      console.log('************** USER ALREADY EXISTS!! **************');
       res.send(404);
     } else {
       var user = new User({
@@ -85,13 +85,10 @@ function(req,res) {
       });
       user.save().then(function(user) {
         Users.add(user);
-        console.log('************** USER saved **************')
-        res.send(201);
-
-     // request.session.regenerate(function(){
-     //     request.session.user = userObj.username;
-     //     response.redirect('/restricted');
-     // });
+        req.session.regenerate(function(){
+           req.session.user = username;
+           res.redirect('/index');
+        });
 
       });
 
